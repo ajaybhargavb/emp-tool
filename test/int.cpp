@@ -20,10 +20,15 @@ void test_int(int party, int range1 = 1<<25, int range2 = 1<<25, int runs = 1000
 			ib %= range2;
 		}
 
+		ia = 50;
+		ib = 10;
+
 		Integer a(32, ia, ALICE);
 		Integer b(32, ib, BOB);
 
 		Integer res = Op2()(a,b);
+		int32_t x = res.reveal<int32_t>(PUBLIC);
+		int32_t y = Op()(ia, ib);
 
 		if (res.reveal<int32_t>(PUBLIC) != Op()(ia,ib)) {
 			cout << a.reveal<int32_t>()<<endl;
@@ -47,16 +52,16 @@ int main(int argc, char** argv) {
 	setup_plain_prot(false, "");
 
 //	scratch_pad();return 0;
-	test_int<std::plus<int>, std::plus<Integer>>(party);
-	test_int<std::minus<int>, std::minus<Integer>>(party);
+	// test_int<std::plus<int>, std::plus<Integer>>(party);
+	// test_int<std::minus<int>, std::minus<Integer>>(party);
 	test_int<std::multiplies<int>, std::multiplies<Integer>>(party);
-	test_int<std::divides<int>, std::divides<Integer>>(party);
-	test_int<std::modulus<int>, std::modulus<Integer>>(party);
+	// test_int<std::divides<int>, std::divides<Integer>>(party);
+	// test_int<std::modulus<int>, std::modulus<Integer>>(party);
 
-	test_int<std::bit_and<int>, std::bit_and<Integer>>(party);
-	test_int<std::bit_or<int>, std::bit_or<Integer>>(party);
-	test_int<std::bit_xor<int>, std::bit_xor<Integer>>(party);
-	cout << CircuitExecution::circ_exec->num_and()<<endl;
+	// test_int<std::bit_and<int>, std::bit_and<Integer>>(party);
+	// test_int<std::bit_or<int>, std::bit_or<Integer>>(party);
+	// test_int<std::bit_xor<int>, std::bit_xor<Integer>>(party);
+	// cout << CircuitExecution::circ_exec->num_and()<<endl;
 
 	finalize_plain_prot();
 }

@@ -2,20 +2,20 @@
 inline void add_full(Bit* dest, Bit * carryOut, const Bit * op1, const Bit * op2,
 		const Bit * carryIn, int size) {
 	Bit carry, bxc, axc, t;
-	int skipLast; 
+	int skipLast;
 	int i = 0;
-	if(size==0) { 
+	if(size==0) {
 		if(carryIn && carryOut)
 			*carryOut = *carryIn;
 		return;
 	}
 	if(carryIn)
 		carry = *carryIn;
-	else 
+	else
 		carry = false;
 	// skip AND on last bit if carryOut==NULL
 	skipLast = (carryOut == nullptr);
-	while(size-->skipLast) { 
+	while(size-->skipLast) {
 		axc = op1[i] ^ carry;
 		bxc = op2[i] ^ carry;
 		dest[i] = op1[i] ^ bxc;
@@ -32,14 +32,14 @@ inline void sub_full(Bit * dest, Bit * borrowOut, const Bit * op1, const Bit * o
 		const Bit * borrowIn, int size) {
 	Bit borrow,bxc,bxa,t;
 	int skipLast; int i = 0;
-	if(size==0) { 
-		if(borrowIn && borrowOut) 
+	if(size==0) {
+		if(borrowIn && borrowOut)
 			*borrowOut = *borrowIn;
 		return;
 	}
-	if(borrowIn) 
+	if(borrowIn)
 		borrow = *borrowIn;
-	else 
+	else
 		borrow = false;
 	// skip AND on last bit if borrowOut==NULL
 	skipLast = (borrowOut == nullptr);
@@ -57,7 +57,7 @@ inline void sub_full(Bit * dest, Bit * borrowOut, const Bit * op1, const Bit * o
 	else
 		dest[i] = op1[i] ^ op2[i] ^ borrow;
 }
-inline void mul_full(Bit * dest, const Bit * op1, const Bit * op2, int size) {
+inline void mul_full_old(Bit * dest, const Bit * op1, const Bit * op2, int size) {
 	Bit * sum = new Bit[size];
 	Bit * temp = new Bit[size];
 	for(int i = 0; i < size; ++i)sum[i]=false;
@@ -71,7 +71,86 @@ inline void mul_full(Bit * dest, const Bit * op1, const Bit * op2, int size) {
 	delete[] temp;
 }
 
-inline void ifThenElse(Bit * dest, const Bit * tsrc, const Bit * fsrc, 
+void init2(Bit *op, int size, bool val) {
+	for (int i = 0; i < size; i++) {
+		op[i] = val;
+	}
+}
+
+void printArray(string action, Bit *op, int size) {
+	std::cout << action << ": ";
+	for (int i = 0; i < size; i++) {
+		bool x = op[i].reveal<bool>(PUBLIC);
+		std::cout << x << " ";
+	}
+	std::cout << std::endl;
+}
+
+inline void mul_full(Bit * dest, const Bit * op1, const Bit * op2, int size) {
+	// base case
+	std::cout << "KARATSUBA START " << size << std::endl;
+	if (size <= 2) {
+		mul_full_old(dest, op1, op2, size);
+		std::cout << "KARATSUBA END" << std::endl;
+		return;
+	}
+
+	int half = size >> 1;
+
+	// z2 = high1 * high2;
+	Bit z2[size]; init2(z2, size, 0);
+	mul_full(z2, op1, op2, half);
+	printArray("z2", z2, size);
+
+	// z0 = low1 * low2;
+	Bit z0[size]; init2(z0, size, 0);
+	mul_full(z0, op1 + half, op2 + half, half);
+	printArray("z0", z0, size);
+
+	// low1 + high1
+	Bit z1First[size]; init2(z1First, size, 0);
+	add_full(z1First, nullptr, op1, op1+half, nullptr, half);
+	printArray("low1 + high1", z1First, size);
+
+	// low2 + high2
+	Bit z1Second[size]; init2(z1Second, size, 0);
+	add_full(z1Second, nullptr, op2, op2+half, nullptr, half);
+	printArray("low2 + high2", z1Second, size);
+
+	// z1 = (low1 + high1) * (low2 + high2)
+	Bit z1[size]; init2(z1, size, 0);
+	mul_full(z1, z1First, z1Second, half+1);
+	printArray("z1", z1, size);
+
+	// z2 + z0
+	Bit subtracts[size]; init2(subtracts, size, 0);
+	add_full(subtracts, nullptr, z0, z2, nullptr, size);
+	printArray("subtracts", subtracts, size);
+
+	// z1 - (z2 + z0)
+	Bit middle[size]; init2(middle, size, 0);
+	sub_full(middle, nullptr, z1, subtracts, nullptr, size);
+	printArray("middle", middle, size);
+
+	// z2 = z2 * (2 ^ (2*half))
+	z2[size-1] = z2[size-1] | 1;
+
+	// middle = middle * (2 ^ half)
+	middle[(size >> 1)-1] = middle[(size >> 1)-1] | 1;
+
+	// z2 + middle
+	Bit tempSum[size]; init2(tempSum, size, 0);
+	add_full(tempSum, nullptr, z2, middle, nullptr, size);
+	printArray("tempSum", tempSum, size);
+
+	// z2 + middle + z0
+	add_full(dest, nullptr, tempSum, z0, nullptr, size);
+	printArray("dest", dest, size);
+
+	std::cout << "KARATSUBA END" << std::endl;
+}
+
+inline void ifThenElse(Bit * dest, const Bit * tsrc, const Bit * fsrc,
 		int size, Bit cond) {
 	Bit x, a;
 	int i = 0;
@@ -94,7 +173,7 @@ inline void condNeg(Bit cond, Bit * dest, const Bit * src, int size) {
 	dest[i] = cond ^ c ^ src[i];
 }
 
-inline void div_full(Bit * vquot, Bit * vrem, const Bit * op1, const Bit * op2, 
+inline void div_full(Bit * vquot, Bit * vrem, const Bit * op1, const Bit * op2,
 		int size) {
 	Bit * overflow = new Bit[size];
 	Bit * temp = new Bit[size];
@@ -130,7 +209,7 @@ inline void Integer::init(bool * b, int len, int party) {
 			bits[i] = b[i] ? one : zero;
 	}
 	else {
-		ProtocolExecution::prot_exec->feed((block *)bits.data(), party, b, len); 
+		ProtocolExecution::prot_exec->feed((block *)bits.data(), party, b, len);
 	}
 }
 
@@ -221,7 +300,7 @@ inline string Integer::reveal<string>(int party) const {
 	return res;
 }
 
-// write the bits of this integer directly into memory wherever output points. 
+// write the bits of this integer directly into memory wherever output points.
 template<typename T>
 inline void Integer::reveal(T * output, const int party) const {
 	bool * b = new bool[size()];
@@ -244,7 +323,7 @@ inline Integer Integer::abs() const {
 }
 
 inline Integer& Integer::resize(int len, bool signed_extend) {
-	Bit MSB(false, PUBLIC); 
+	Bit MSB(false, PUBLIC);
 	if(signed_extend)
 		MSB = bits[bits.size()-1];
 	bits.resize(len, MSB);
@@ -431,7 +510,7 @@ inline Integer Integer::modExp(Integer p, Integer q) {
 	for(int i = 0; i < p.size(); ++i) {
 		Integer tmp = (res * base) % q;
 		res = res.select(p[i], tmp);
-		base = (base*base) % q; 
+		base = (base*base) % q;
 	}
 	return res;
 }
